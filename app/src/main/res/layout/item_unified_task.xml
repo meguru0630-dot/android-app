@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <TextView
+        android:id="@+id/textTaskName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="タスク名"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/textRepeatInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="繰り返し: 毎日"
+        android:textSize="14sp"
+        android:textColor="#666"
+        android:visibility="gone" />
+</LinearLayout>

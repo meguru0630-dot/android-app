@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <!-- 閉じるボタン（右上） -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="end">
+
+        <ImageButton
+            android:id="@+id/btnCloseRepeatList"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="閉じる" />
+    </LinearLayout>
+
+    <!-- タスクリスト -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/repeatRecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="400dp" />
+</LinearLayout>

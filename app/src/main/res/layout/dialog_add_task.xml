@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    tools:context=".MainActivity"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="20dp">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <!-- 閉じるボタン（右上） -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="end">
+
+            <ImageButton
+                android:id="@+id/btnClose"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="閉じる" />
+        </LinearLayout>
+
+        <!-- タスク名入力 -->
+        <EditText
+            android:id="@+id/editTaskName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="タスク名（1行目）＋日時（2行目）" />
+
+
+
+        <!-- トグルスイッチ -->
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switchRepeat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="繰り返しを有効にする"
+            android:minHeight="48dp"
+            android:minWidth="48dp"
+            android:padding="8dp" />
+
+
+        <!-- ラジオボタン群（毎日 / 曜日指定） -->
+        <RadioGroup
+            android:id="@+id/radioGroupRepeat"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone">
+
+            <RadioButton
+                android:id="@+id/radioDaily"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="毎日" />
+
+            <RadioButton
+                android:id="@+id/radioWeekly"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="曜日指定" />
+        </RadioGroup>
+
+        <!-- 曜日チェックボックス群 -->
+        <LinearLayout
+            android:id="@+id/weekdayCheckboxes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <CheckBox android:text="月" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+            <CheckBox android:text="火" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+            <CheckBox android:text="水" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+            <CheckBox android:text="木" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+            <CheckBox android:text="金" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+            <CheckBox android:text="土" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+            <CheckBox android:text="日" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        </LinearLayout>
+
+        <!-- 追加ボタン -->
+        <Button
+            android:id="@+id/btnAdd"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="追加" />
+    </LinearLayout>
+</ScrollView>
