@@ -20,25 +20,29 @@ import com.example.todoappss.com.example.todoappss.RepeatTaskAdapter
 
 class MainActivity : AppCompatActivity() {
 
+    private var taskList = mutableListOf<Pair<String, String>>()
+//    shared
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)  // レイアウトを画面にセット
 
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerView)
+//--------------------------------------
+        taskList = loadTasks()
 
-        // 仮のデータ（リストに表示する内容）
-        val taskList = mutableListOf(
-            "掃除" to "",
-            "歯磨き" to "0",
-            "ゴミ出し" to "2,5"
+        val adapter = UnifiedTaskAdapter(taskList)
+        recyclerView.adapter = adapter
+        recyclerView.layoutManager = LinearLayoutManager(this)
+        recyclerView.addItemDecoration(
+            DividerItemDecoration(this, DividerItemDecoration.VERTICAL)
         )
-
+//----------------------------------------shared
         // ← 繰り返し付きタスクも入れてOK   //タスク名 to 繰り返し情報
 
 
 
         // RecyclerViewにアダプターをセット
-        val adapter = UnifiedTaskAdapter(taskList)
         recyclerView.adapter = adapter
         recyclerView.layoutManager = LinearLayoutManager(this)
 
@@ -101,6 +105,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 taskList.add(taskName to repeatInfo)
+                saveTasks()
                 recyclerView.adapter = UnifiedTaskAdapter(taskList)
                 dialog.dismiss()
             }
@@ -135,4 +140,42 @@ class MainActivity : AppCompatActivity() {
         }
 
     }
+
+//    -----------------------------------
+//タスク保存
+private fun saveTasks() {
+    val sharedPreferences = getSharedPreferences("TaskPrefs", MODE_PRIVATE)
+    val editor = sharedPreferences.edit()
+
+    val jsonArray = org.json.JSONArray()
+    for (task in taskList) {
+        val obj = org.json.JSONObject()
+        obj.put("name", task.first)
+        obj.put("repeat", task.second)
+        jsonArray.put(obj)
+    }
+
+    editor.putString("tasks", jsonArray.toString())
+    editor.apply()
 }
+
+    // タスク読み込み
+    private fun loadTasks(): MutableList<Pair<String, String>> {
+        val sharedPreferences = getSharedPreferences("TaskPrefs", MODE_PRIVATE)
+        val jsonString = sharedPreferences.getString("tasks", null)
+
+        val list = mutableListOf<Pair<String, String>>()
+        if (jsonString != null) {
+            val jsonArray = org.json.JSONArray(jsonString)
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val name = obj.getString("name")
+                val repeat = obj.getString("repeat")
+                list.add(name to repeat)
+            }
+        }
+        return list
+    }
+}
+
+
