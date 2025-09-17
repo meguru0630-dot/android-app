@@ -15,44 +15,35 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.SwitchCompat
-import com.example.todoappss.com.example.todoappss.RepeatTaskAdapter
-
+import java.util.Calendar
+import org.json.JSONArray
+import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
     private var taskList = mutableListOf<Pair<String, String>>()
-//    shared
+    private lateinit var adapter: UnifiedTaskAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)  // レイアウトを画面にセット
+        setContentView(R.layout.activity_main)
 
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerView)
-//--------------------------------------
-        taskList = loadTasks()
 
-        val adapter = UnifiedTaskAdapter(taskList)
+        // 🔹 タスクをロード
+        taskList = loadTasks().toMutableList()
+
+        // 🔹 今日の繰り返しタスクを追加
+        addTodayRepeatTasks()
+
+        adapter = UnifiedTaskAdapter(taskList)
         recyclerView.adapter = adapter
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.addItemDecoration(
             DividerItemDecoration(this, DividerItemDecoration.VERTICAL)
         )
-//----------------------------------------shared
-        // ← 繰り返し付きタスクも入れてOK   //タスク名 to 繰り返し情報
 
-
-
-        // RecyclerViewにアダプターをセット
-        recyclerView.adapter = adapter
-        recyclerView.layoutManager = LinearLayoutManager(this)
-
-
-        // リストに区切り線を追加
-        recyclerView.addItemDecoration(
-            DividerItemDecoration(this, DividerItemDecoration.VERTICAL)
-        )
-
-
+        // 🔹 タスク追加ボタン
         val btnAdd = findViewById<Button>(R.id.btnAddTask)
         btnAdd.setOnClickListener {
             val dialogView = layoutInflater.inflate(R.layout.dialog_add_task, null)
@@ -68,7 +59,6 @@ class MainActivity : AppCompatActivity() {
             val btnClose = dialogView.findViewById<ImageButton>(R.id.btnClose)
             btnClose.setOnClickListener { dialog.dismiss() }
 
-            // スイッチでラジオグループ表示切替
             radioGroupRepeat.visibility = View.GONE
             weekdayCheckboxes.visibility = View.GONE
 
@@ -77,13 +67,12 @@ class MainActivity : AppCompatActivity() {
                 if (!isChecked) weekdayCheckboxes.visibility = View.GONE
             }
 
-            // 曜日選択表示
             radioGroupRepeat.setOnCheckedChangeListener { _, checkedId ->
                 weekdayCheckboxes.visibility = if (checkedId == R.id.radioWeekly) View.VISIBLE else View.GONE
             }
 
-            val btnAdd = dialogView.findViewById<Button>(R.id.btnAdd)
-            btnAdd.setOnClickListener {
+            val btnAddTask = dialogView.findViewById<Button>(R.id.btnAdd)
+            btnAddTask.setOnClickListener {
                 val taskName = editTaskName.text.toString().trim()
                 if (taskName.isEmpty()) return@setOnClickListener
 
@@ -106,24 +95,18 @@ class MainActivity : AppCompatActivity() {
 
                 taskList.add(taskName to repeatInfo)
                 saveTasks()
-                recyclerView.adapter = UnifiedTaskAdapter(taskList)
+                adapter.notifyDataSetChanged()
                 dialog.dismiss()
             }
 
             dialog.show()
         }
 
-
-
-        //繰り返しタスクリスト
+        // 🔹 繰り返しタスク一覧表示
         val btnRepeatList = findViewById<Button>(R.id.btnRepeatList)
-
         btnRepeatList.setOnClickListener {
             val dialogView = layoutInflater.inflate(R.layout.dialog_repeat_list, null)
-
-            val dialog = AlertDialog.Builder(this)
-                .setView(dialogView)
-                .create()
+            val dialog = AlertDialog.Builder(this).setView(dialogView).create()
 
             dialogView.findViewById<ImageButton>(R.id.btnCloseRepeatList).setOnClickListener {
                 dialog.dismiss()
@@ -132,41 +115,38 @@ class MainActivity : AppCompatActivity() {
             val repeatRecyclerView = dialogView.findViewById<RecyclerView>(R.id.repeatRecyclerView)
             repeatRecyclerView.layoutManager = LinearLayoutManager(this)
 
-            val repeatTaskList = taskList.filter { it.second.isNotEmpty() } //変更
-
-            repeatRecyclerView.adapter = UnifiedTaskAdapter(repeatTaskList) //変更repeatADからUniへ
+            val repeatTaskList = taskList.filter { it.second.isNotEmpty() }
+            repeatRecyclerView.adapter = UnifiedTaskAdapter(repeatTaskList)
 
             dialog.show()
         }
-
     }
 
-//    -----------------------------------
-//タスク保存
-private fun saveTasks() {
-    val sharedPreferences = getSharedPreferences("TaskPrefs", MODE_PRIVATE)
-    val editor = sharedPreferences.edit()
+    // 🔹 タスク保存
+    private fun saveTasks() {
+        val sharedPreferences = getSharedPreferences("TaskPrefs", MODE_PRIVATE)
+        val editor = sharedPreferences.edit()
 
-    val jsonArray = org.json.JSONArray()
-    for (task in taskList) {
-        val obj = org.json.JSONObject()
-        obj.put("name", task.first)
-        obj.put("repeat", task.second)
-        jsonArray.put(obj)
+        val jsonArray = JSONArray()
+        for (task in taskList) {
+            val obj = JSONObject()
+            obj.put("name", task.first)
+            obj.put("repeat", task.second)
+            jsonArray.put(obj)
+        }
+
+        editor.putString("tasks", jsonArray.toString())
+        editor.apply()
     }
 
-    editor.putString("tasks", jsonArray.toString())
-    editor.apply()
-}
-
-    // タスク読み込み
+    // 🔹 タスク読み込み
     private fun loadTasks(): MutableList<Pair<String, String>> {
         val sharedPreferences = getSharedPreferences("TaskPrefs", MODE_PRIVATE)
         val jsonString = sharedPreferences.getString("tasks", null)
 
         val list = mutableListOf<Pair<String, String>>()
         if (jsonString != null) {
-            val jsonArray = org.json.JSONArray(jsonString)
+            val jsonArray = JSONArray(jsonString)
             for (i in 0 until jsonArray.length()) {
                 val obj = jsonArray.getJSONObject(i)
                 val name = obj.getString("name")
@@ -176,6 +156,36 @@ private fun saveTasks() {
         }
         return list
     }
+
+    // 🔹 今日の繰り返しタスクを追加
+    private fun addTodayRepeatTasks() {
+        val sharedPreferences = getSharedPreferences("TaskPrefs", MODE_PRIVATE)
+        val lastAddedDay = sharedPreferences.getInt("lastAddedDay", -1)
+
+        val calendar = Calendar.getInstance()
+        val today = calendar.get(Calendar.DAY_OF_WEEK) // 1=日曜, 2=月曜...7=土曜
+
+        if (lastAddedDay == today) return // すでに追加済みなら何もしない
+
+        val newTasks = mutableListOf<Pair<String, String>>()
+
+        for (task in taskList) {
+            val repeatInfo = task.second
+            if (repeatInfo.isNotEmpty()) {
+                val repeatDays = repeatInfo.split(",").map { it.toInt() }
+                if (repeatDays.contains(0) || repeatDays.contains(today)) {
+                    // 単発タスクとして追加
+                    newTasks.add(task.first to "")
+                }
+            }
+        }
+
+        if (newTasks.isNotEmpty()) {
+            taskList.addAll(newTasks)
+            saveTasks()
+        }
+
+        // 今日の日付を保存
+        sharedPreferences.edit().putInt("lastAddedDay", today).apply()
+    }
 }
-
-
