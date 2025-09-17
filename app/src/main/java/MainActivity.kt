@@ -18,6 +18,9 @@ import androidx.appcompat.widget.SwitchCompat
 import java.util.Calendar
 import org.json.JSONArray
 import org.json.JSONObject
+import androidx.recyclerview.widget.ItemTouchHelper
+
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -42,6 +45,25 @@ class MainActivity : AppCompatActivity() {
         recyclerView.addItemDecoration(
             DividerItemDecoration(this, DividerItemDecoration.VERTICAL)
         )
+
+        // スワイプ削除
+        // RecyclerView にスワイプ削除を追加
+        val itemTouchHelperMain = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean = false
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.adapterPosition
+                taskList.removeAt(position)  // メインリストから削除
+                saveTasks()                  // 永続化
+                recyclerView.adapter?.notifyItemRemoved(position)
+            }
+        })
+        itemTouchHelperMain.attachToRecyclerView(recyclerView)
+
 
         // 🔹 タスク追加ボタン
         val btnAdd = findViewById<Button>(R.id.btnAddTask)
@@ -117,6 +139,49 @@ class MainActivity : AppCompatActivity() {
 
             val repeatTaskList = taskList.filter { it.second.isNotEmpty() }
             repeatRecyclerView.adapter = UnifiedTaskAdapter(repeatTaskList)
+
+            //スワイプ削除　繰り返しリストから
+            btnRepeatList.setOnClickListener {
+                val dialogView = layoutInflater.inflate(R.layout.dialog_repeat_list, null)
+                val dialog = AlertDialog.Builder(this).setView(dialogView).create()
+
+                dialogView.findViewById<ImageButton>(R.id.btnCloseRepeatList).setOnClickListener {
+                    dialog.dismiss()
+                }
+
+                val repeatRecyclerView = dialogView.findViewById<RecyclerView>(R.id.repeatRecyclerView)
+                repeatRecyclerView.layoutManager = LinearLayoutManager(this)
+
+                // 繰り返しタスクだけを抽出
+                val repeatTaskList = taskList.filter { it.second.isNotEmpty() }.toMutableList()
+                val repeatAdapter = UnifiedTaskAdapter(repeatTaskList)
+                repeatRecyclerView.adapter = repeatAdapter
+
+                // 🔹 繰り返し一覧にスワイプ削除を追加
+                val itemTouchHelperRepeat = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
+                    override fun onMove(
+                        recyclerView: RecyclerView,
+                        viewHolder: RecyclerView.ViewHolder,
+                        target: RecyclerView.ViewHolder
+                    ): Boolean = false
+
+                    override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                        val position = viewHolder.adapterPosition
+                        val removedTask = repeatTaskList[position]
+
+                        // 🔹 元の taskList からも該当タスクを削除
+                        taskList.removeIf { it.first == removedTask.first && it.second == removedTask.second }
+
+                        saveTasks() // 永続化
+                        repeatTaskList.removeAt(position)
+                        repeatAdapter.notifyItemRemoved(position)
+                    }
+                })
+                itemTouchHelperRepeat.attachToRecyclerView(repeatRecyclerView)
+
+                dialog.show()
+            }
+
 
             dialog.show()
         }
