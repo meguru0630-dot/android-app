@@ -7,7 +7,8 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
 class UnifiedTaskAdapter(
-    private val taskList: List<Pair<String, String>>
+    private val taskList: List<Pair<String, String>>,
+    private val formatRepeatInfo: (String) -> String // 🔹 繰り返し情報を文字に変換する関数を受け取る
 ) : RecyclerView.Adapter<UnifiedTaskAdapter.ViewHolder>() {
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -29,7 +30,8 @@ class UnifiedTaskAdapter(
         if (repeatText.isEmpty()) {
             holder.textRepeatInfo.visibility = View.GONE
         } else {
-            holder.textRepeatInfo.text = "繰り返し: $repeatText" //繰り返し情報
+            // 🔹 数字を文字に変換して表示
+            holder.textRepeatInfo.text = "繰り返し: ${formatRepeatInfo(repeatText)}"
             holder.textRepeatInfo.visibility = View.VISIBLE
         }
     }

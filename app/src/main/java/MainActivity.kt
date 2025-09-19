@@ -39,8 +39,9 @@ class MainActivity : AppCompatActivity() {
         // 🔹 今日の繰り返しタスクを追加
         addTodayRepeatTasks()
 
-        adapter = UnifiedTaskAdapter(taskList)
+        val adapter = UnifiedTaskAdapter(taskList, ::formatRepeatInfo)
         recyclerView.adapter = adapter
+
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.addItemDecoration(
             DividerItemDecoration(this, DividerItemDecoration.VERTICAL)
@@ -138,7 +139,8 @@ class MainActivity : AppCompatActivity() {
             repeatRecyclerView.layoutManager = LinearLayoutManager(this)
 
             val repeatTaskList = taskList.filter { it.second.isNotEmpty() }
-            repeatRecyclerView.adapter = UnifiedTaskAdapter(repeatTaskList)
+            repeatRecyclerView.adapter = UnifiedTaskAdapter(repeatTaskList, ::formatRepeatInfo)
+
 
             //スワイプ削除　繰り返しリストから
             btnRepeatList.setOnClickListener {
@@ -154,7 +156,7 @@ class MainActivity : AppCompatActivity() {
 
                 // 繰り返しタスクだけを抽出
                 val repeatTaskList = taskList.filter { it.second.isNotEmpty() }.toMutableList()
-                val repeatAdapter = UnifiedTaskAdapter(repeatTaskList)
+                val repeatAdapter = UnifiedTaskAdapter(repeatTaskList, ::formatRepeatInfo)
                 repeatRecyclerView.adapter = repeatAdapter
 
                 // 🔹 繰り返し一覧にスワイプ削除を追加
@@ -253,4 +255,27 @@ class MainActivity : AppCompatActivity() {
         // 今日の日付を保存
         sharedPreferences.edit().putInt("lastAddedDay", today).apply()
     }
+
+    //  数字の繰り返し情報を見やすい文字に変換
+    private fun formatRepeatInfo(repeatInfo: String): String {
+        if (repeatInfo.isEmpty()) return ""   // 単発タスクは空文字のまま
+
+        if (repeatInfo == "0") return "毎日" // 0 は「毎日」
+
+        val dayMap = mapOf(
+            1 to "日",
+            2 to "月",
+            3 to "火",
+            4 to "水",
+            5 to "木",
+            6 to "金",
+            7 to "土"
+        )
+
+        // 例: "2,5" → ["月","木"] → "月・木"
+        return repeatInfo.split(",").mapNotNull { num ->
+            num.toIntOrNull()?.let { dayMap[it] }
+        }.joinToString("・")
+    }
+
 }
