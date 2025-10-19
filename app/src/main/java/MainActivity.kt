@@ -2,54 +2,51 @@ package com.example.todoappss
 
 import android.os.Bundle
 import android.view.View
-import android.widget.Button
-import android.widget.CheckBox
-import android.widget.EditText
-import android.widget.ImageButton
-import android.widget.LinearLayout
-import android.widget.RadioButton
-import android.widget.RadioGroup
+import android.widget.*
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
 import androidx.recyclerview.widget.DividerItemDecoration
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.widget.SwitchCompat
-import java.util.Calendar
 import org.json.JSONArray
 import org.json.JSONObject
-import androidx.recyclerview.widget.ItemTouchHelper
-
-
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
-    private var taskList = mutableListOf<Pair<String, String>>()
-    private lateinit var adapter: UnifiedTaskAdapter
+    // 🔹 単発タスクと繰り返しタスクを独立管理
+    private var taskList = mutableListOf<Pair<String, String>>() // タスク名 to 繰り返し情報
+    private var repeatTaskList = mutableListOf<Pair<String, String>>()
+
+    private lateinit var taskAdapter: TaskAdapter
+    private lateinit var repeatAdapter: RepeatTaskAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerView)
+        val btnAdd = findViewById<Button>(R.id.btnAddTask)
+        val btnRepeatList = findViewById<Button>(R.id.btnRepeatList)
 
-        // 🔹 タスクをロード
+        // 🔹 データを読み込み
         taskList = loadTasks().toMutableList()
+        repeatTaskList = loadRepeatTasks().toMutableList()
 
-        // 🔹 今日の繰り返しタスクを追加
+        // 🔹 今日分の繰り返しタスクを自動追加
         addTodayRepeatTasks()
 
-        val adapter = UnifiedTaskAdapter(taskList, ::formatRepeatInfo)
-        recyclerView.adapter = adapter
-
+        // 🔹 単発タスクリスト設定
+        taskAdapter = TaskAdapter(taskList, ::formatRepeatInfo)
+        recyclerView.adapter = taskAdapter
         recyclerView.layoutManager = LinearLayoutManager(this)
-        recyclerView.addItemDecoration(
-            DividerItemDecoration(this, DividerItemDecoration.VERTICAL)
-        )
+        recyclerView.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
 
-        // スワイプ削除
-        // RecyclerView にスワイプ削除を追加
-        val itemTouchHelperMain = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
+        // 🔹 スワイプ削除（単発タスク）
+        val itemTouchHelperMain = ItemTouchHelper(object :
+            ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
             override fun onMove(
                 recyclerView: RecyclerView,
                 viewHolder: RecyclerView.ViewHolder,
@@ -58,16 +55,14 @@ class MainActivity : AppCompatActivity() {
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val position = viewHolder.adapterPosition
-                taskList.removeAt(position)  // メインリストから削除
-                saveTasks()                  // 永続化
-                recyclerView.adapter?.notifyItemRemoved(position)
+                taskList.removeAt(position)
+                saveTasks()
+                taskAdapter.notifyItemRemoved(position)
             }
         })
         itemTouchHelperMain.attachToRecyclerView(recyclerView)
 
-
         // 🔹 タスク追加ボタン
-        val btnAdd = findViewById<Button>(R.id.btnAddTask)
         btnAdd.setOnClickListener {
             val dialogView = layoutInflater.inflate(R.layout.dialog_add_task, null)
             val dialog = AlertDialog.Builder(this).setView(dialogView).create()
@@ -101,11 +96,12 @@ class MainActivity : AppCompatActivity() {
 
                 var repeatInfo = ""
                 if (switchRepeat.isChecked) {
-                    repeatInfo = when (radioGroupRepeat.checkedRadioButtonId) {
+                    // 繰り返しタスク登録
+                    val repeatInfo = when (radioGroupRepeat.checkedRadioButtonId) {
                         R.id.radioDaily -> "0"
                         R.id.radioWeekly -> {
                             val selectedDays = mutableListOf<Int>()
-                            val dayMap = listOf(2, 3, 4, 5, 6, 7, 1) // 月〜日
+                            val dayMap = listOf(2,3,4,5,6,7,1)
                             for (i in 0 until weekdayCheckboxes.childCount) {
                                 val cb = weekdayCheckboxes.getChildAt(i) as CheckBox
                                 if (cb.isChecked) selectedDays.add(dayMap[i])
@@ -114,19 +110,35 @@ class MainActivity : AppCompatActivity() {
                         }
                         else -> ""
                     }
+
+                    // repeatTaskList に保存（既存の繰り返しリスト）
+                    repeatTaskList.add(taskName to repeatInfo)
+                    saveRepeatTasks()
+
+                    // メイン taskList にも繰り返し情報付きで追加（表示のため）
+                    taskList.add(taskName to repeatInfo)
+                    saveTasks()
+                    taskAdapter.notifyItemInserted(taskList.size - 1)
+                } else {
+                    // 単発タスク
+                    taskList.add(taskName to "")
+                    saveTasks()
+                    taskAdapter.notifyItemInserted(taskList.size - 1)
                 }
 
-                taskList.add(taskName to repeatInfo)
+
                 saveTasks()
                 adapter.notifyDataSetChanged()
                 dialog.dismiss()
             }
 
+
+
+
             dialog.show()
         }
 
-        // 🔹 繰り返しタスク一覧表示
-        val btnRepeatList = findViewById<Button>(R.id.btnRepeatList)
+        // 🔹 繰り返しタスク一覧
         btnRepeatList.setOnClickListener {
             val dialogView = layoutInflater.inflate(R.layout.dialog_repeat_list, null)
             val dialog = AlertDialog.Builder(this).setView(dialogView).create()
@@ -137,89 +149,81 @@ class MainActivity : AppCompatActivity() {
 
             val repeatRecyclerView = dialogView.findViewById<RecyclerView>(R.id.repeatRecyclerView)
             repeatRecyclerView.layoutManager = LinearLayoutManager(this)
+            repeatAdapter = RepeatTaskAdapter(repeatTaskList, ::formatRepeatInfo)
+            repeatRecyclerView.adapter = repeatAdapter
 
-            val repeatTaskList = taskList.filter { it.second.isNotEmpty() }
-            repeatRecyclerView.adapter = UnifiedTaskAdapter(repeatTaskList, ::formatRepeatInfo)
+            // 🔹 スワイプ削除（繰り返しタスク）
+            val itemTouchHelperRepeat = ItemTouchHelper(object :
+                ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
+                override fun onMove(
+                    recyclerView: RecyclerView,
+                    viewHolder: RecyclerView.ViewHolder,
+                    target: RecyclerView.ViewHolder
+                ): Boolean = false
 
-
-            //スワイプ削除　繰り返しリストから
-            btnRepeatList.setOnClickListener {
-                val dialogView = layoutInflater.inflate(R.layout.dialog_repeat_list, null)
-                val dialog = AlertDialog.Builder(this).setView(dialogView).create()
-
-                dialogView.findViewById<ImageButton>(R.id.btnCloseRepeatList).setOnClickListener {
-                    dialog.dismiss()
+                override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                    val position = viewHolder.adapterPosition
+                    repeatTaskList.removeAt(position)
+                    saveRepeatTasks()
+                    repeatAdapter.notifyItemRemoved(position)
                 }
-
-                val repeatRecyclerView = dialogView.findViewById<RecyclerView>(R.id.repeatRecyclerView)
-                repeatRecyclerView.layoutManager = LinearLayoutManager(this)
-
-                // 繰り返しタスクだけを抽出
-                val repeatTaskList = taskList.filter { it.second.isNotEmpty() }.toMutableList()
-                val repeatAdapter = UnifiedTaskAdapter(repeatTaskList, ::formatRepeatInfo)
-                repeatRecyclerView.adapter = repeatAdapter
-
-                // 🔹 繰り返し一覧にスワイプ削除を追加
-                val itemTouchHelperRepeat = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
-                    override fun onMove(
-                        recyclerView: RecyclerView,
-                        viewHolder: RecyclerView.ViewHolder,
-                        target: RecyclerView.ViewHolder
-                    ): Boolean = false
-
-                    override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
-                        val position = viewHolder.adapterPosition
-                        val removedTask = repeatTaskList[position]
-
-                        // 🔹 元の taskList からも該当タスクを削除
-                        taskList.removeIf { it.first == removedTask.first && it.second == removedTask.second }
-
-                        saveTasks() // 永続化
-                        repeatTaskList.removeAt(position)
-                        repeatAdapter.notifyItemRemoved(position)
-                    }
-                })
-                itemTouchHelperRepeat.attachToRecyclerView(repeatRecyclerView)
-
-                dialog.show()
-            }
-
+            })
+            itemTouchHelperRepeat.attachToRecyclerView(repeatRecyclerView)
 
             dialog.show()
         }
     }
 
-    // 🔹 タスク保存
+    // 🔹 単発タスク保存
+    // 🔹 タスク保存（Pair<String,String> 用）
     private fun saveTasks() {
-        val sharedPreferences = getSharedPreferences("TaskPrefs", MODE_PRIVATE)
-        val editor = sharedPreferences.edit()
-
-        val jsonArray = JSONArray()
-        for (task in taskList) {
+        val prefs = getSharedPreferences("TaskPrefs", MODE_PRIVATE)
+        val arr = JSONArray()
+        taskList.forEach { pair ->
             val obj = JSONObject()
-            obj.put("name", task.first)
-            obj.put("repeat", task.second)
-            jsonArray.put(obj)
+            obj.put("name", pair.first)
+            obj.put("repeat", pair.second)
+            arr.put(obj)
         }
-
-        editor.putString("tasks", jsonArray.toString())
-        editor.apply()
+        prefs.edit().putString("tasks", arr.toString()).apply()
     }
 
-    // 🔹 タスク読み込み
+    // 🔹 タスク読み込み（Pair<String,String> 用）
     private fun loadTasks(): MutableList<Pair<String, String>> {
-        val sharedPreferences = getSharedPreferences("TaskPrefs", MODE_PRIVATE)
-        val jsonString = sharedPreferences.getString("tasks", null)
-
+        val prefs = getSharedPreferences("TaskPrefs", MODE_PRIVATE)
+        val json = prefs.getString("tasks", null) ?: return mutableListOf()
+        val arr = JSONArray(json)
         val list = mutableListOf<Pair<String, String>>()
-        if (jsonString != null) {
-            val jsonArray = JSONArray(jsonString)
-            for (i in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(i)
-                val name = obj.getString("name")
-                val repeat = obj.getString("repeat")
-                list.add(name to repeat)
-            }
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            list.add(obj.getString("name") to obj.getString("repeat"))
+        }
+        return list
+    }
+
+
+    // 🔹 繰り返しタスク保存
+    private fun saveRepeatTasks() {
+        val prefs = getSharedPreferences("RepeatPrefs", MODE_PRIVATE)
+        val arr = JSONArray()
+        repeatTaskList.forEach {
+            val obj = JSONObject()
+            obj.put("name", it.first)
+            obj.put("repeat", it.second)
+            arr.put(obj)
+        }
+        prefs.edit().putString("repeat_tasks", arr.toString()).apply()
+    }
+
+    // 🔹 繰り返しタスク読み込み
+    private fun loadRepeatTasks(): MutableList<Pair<String, String>> {
+        val prefs = getSharedPreferences("RepeatPrefs", MODE_PRIVATE)
+        val json = prefs.getString("repeat_tasks", null) ?: return mutableListOf()
+        val arr = JSONArray(json)
+        val list = mutableListOf<Pair<String, String>>()
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            list.add(obj.getString("name") to obj.getString("repeat"))
         }
         return list
     }
@@ -234,33 +238,24 @@ class MainActivity : AppCompatActivity() {
 
         if (lastAddedDay == today) return // すでに追加済みなら何もしない
 
-        val newTasks = mutableListOf<Pair<String, String>>()
-
-        for (task in taskList) {
-            val repeatInfo = task.second
-            if (repeatInfo.isNotEmpty()) {
-                val repeatDays = repeatInfo.split(",").map { it.toInt() }
-                if (repeatDays.contains(0) || repeatDays.contains(today)) {
-                    // 単発タスクとして追加
-                    newTasks.add(task.first to "")
-                }
-            }
-        }
+        val newTasks = repeatTaskList.filter { task ->
+            val repeatDays = task.second.split(",").mapNotNull { it.toIntOrNull() }
+            repeatDays.contains(0) || repeatDays.contains(today)
+        }.map { it.first to it.second } // ← ★繰り返し情報を保持
 
         if (newTasks.isNotEmpty()) {
             taskList.addAll(newTasks)
             saveTasks()
         }
 
-        // 今日の日付を保存
         sharedPreferences.edit().putInt("lastAddedDay", today).apply()
     }
 
-    //  数字の繰り返し情報を見やすい文字に変換
-    private fun formatRepeatInfo(repeatInfo: String): String {
-        if (repeatInfo.isEmpty()) return ""   // 単発タスクは空文字のまま
 
-        if (repeatInfo == "0") return "毎日" // 0 は「毎日」
+    // 🔹 数字の繰り返し情報を日本語に変換
+    private fun formatRepeatInfo(repeatInfo: String): String {
+        if (repeatInfo.isEmpty()) return ""
+        if (repeatInfo == "0") return "毎日"
 
         val dayMap = mapOf(
             1 to "日",
@@ -271,11 +266,8 @@ class MainActivity : AppCompatActivity() {
             6 to "金",
             7 to "土"
         )
-
-        // 例: "2,5" → ["月","木"] → "月・木"
         return repeatInfo.split(",").mapNotNull { num ->
             num.toIntOrNull()?.let { dayMap[it] }
         }.joinToString("・")
     }
-
 }
