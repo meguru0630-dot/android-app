@@ -7,8 +7,8 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
 class RepeatTaskAdapter(
-    private val repeatTaskList: List<Pair<String, String>>,
-    private val formatRepeatInfo: (String) -> String
+    private val taskList: List<Pair<String, String>>,
+    private val formatRepeatInfo: (String) -> String  // ← MainActivityから関数を受け取る
 ) : RecyclerView.Adapter<RepeatTaskAdapter.ViewHolder>() {
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -23,12 +23,19 @@ class RepeatTaskAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val (taskName, repeatInfo) = repeatTaskList[position]
+        val (taskName, repeatText) = taskList[position]
+
         holder.textTaskName.text = taskName
-        holder.textRepeatInfo.text =
-            if (repeatInfo.isEmpty()) ""
-            else "繰り返し: ${formatRepeatInfo(repeatInfo)}"
+
+        if (repeatText.isEmpty()) {
+            holder.textRepeatInfo.visibility = View.GONE
+        } else {
+            // 🔹 MainActivityから受け取った変換関数で見やすい形式に
+            val formatted = formatRepeatInfo(repeatText)
+            holder.textRepeatInfo.text = ": $formatted"
+            holder.textRepeatInfo.visibility = View.VISIBLE
+        }
     }
 
-    override fun getItemCount(): Int = repeatTaskList.size
+    override fun getItemCount(): Int = taskList.size
 }

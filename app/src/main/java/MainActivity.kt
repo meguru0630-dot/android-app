@@ -128,7 +128,7 @@ class MainActivity : AppCompatActivity() {
 
 
                 saveTasks()
-                adapter.notifyDataSetChanged()
+                taskAdapter.notifyDataSetChanged()
                 dialog.dismiss()
             }
 

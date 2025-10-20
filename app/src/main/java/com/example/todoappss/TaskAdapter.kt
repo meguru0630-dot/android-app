@@ -30,7 +30,7 @@ class TaskAdapter(
             holder.textRepeatInfo.visibility = View.GONE
         } else {
             holder.textRepeatInfo.visibility = View.VISIBLE
-            holder.textRepeatInfo.text = "繰り返し: ${formatRepeatInfo(repeat)}"
+            holder.textRepeatInfo.text = ": ${formatRepeatInfo(repeat)}"
         }
     }
 
