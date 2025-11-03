@@ -23,6 +23,21 @@ class MainActivity : AppCompatActivity() {
     private lateinit var taskAdapter: TaskAdapter
     private lateinit var repeatAdapter: RepeatTaskAdapter
 
+    // 🔹追加：日付チェック用Handler
+    private val dateCheckHandler = android.os.Handler()
+    private var lastCheckedDay = -1
+    private val dateCheckRunnable = object : Runnable {
+        override fun run() {
+            val today = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
+            if (lastCheckedDay != -1 && lastCheckedDay != today) {
+                addTodayRepeatTasks()
+                taskAdapter.notifyDataSetChanged()
+            }
+            lastCheckedDay = today
+            dateCheckHandler.postDelayed(this, 10_000) // 10秒ごとにチェック
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -86,6 +101,12 @@ class MainActivity : AppCompatActivity() {
             }
 
             radioGroupRepeat.setOnCheckedChangeListener { _, checkedId ->
+                // 🔹キーボードを閉じる
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                val currentFocusView = dialogView.findFocus()
+                currentFocusView?.let { imm.hideSoftInputFromWindow(it.windowToken, 0) }
+
+                // 🔹切り替え
                 weekdayCheckboxes.visibility = if (checkedId == R.id.radioWeekly) View.VISIBLE else View.GONE
             }
 
@@ -96,8 +117,7 @@ class MainActivity : AppCompatActivity() {
 
                 var repeatInfo = ""
                 if (switchRepeat.isChecked) {
-                    // 繰り返しタスク登録
-                    val repeatInfo = when (radioGroupRepeat.checkedRadioButtonId) {
+                    repeatInfo = when (radioGroupRepeat.checkedRadioButtonId) {
                         R.id.radioDaily -> "0"
                         R.id.radioWeekly -> {
                             val selectedDays = mutableListOf<Int>()
@@ -111,29 +131,21 @@ class MainActivity : AppCompatActivity() {
                         else -> ""
                     }
 
-                    // repeatTaskList に保存（既存の繰り返しリスト）
                     repeatTaskList.add(taskName to repeatInfo)
                     saveRepeatTasks()
 
-                    // メイン taskList にも繰り返し情報付きで追加（表示のため）
+                    // メイン taskList にも追加
                     taskList.add(taskName to repeatInfo)
                     saveTasks()
                     taskAdapter.notifyItemInserted(taskList.size - 1)
                 } else {
-                    // 単発タスク
                     taskList.add(taskName to "")
                     saveTasks()
                     taskAdapter.notifyItemInserted(taskList.size - 1)
                 }
 
-
-                saveTasks()
-                taskAdapter.notifyDataSetChanged()
                 dialog.dismiss()
             }
-
-
-
 
             dialog.show()
         }
@@ -152,7 +164,6 @@ class MainActivity : AppCompatActivity() {
             repeatAdapter = RepeatTaskAdapter(repeatTaskList, ::formatRepeatInfo)
             repeatRecyclerView.adapter = repeatAdapter
 
-            // 🔹 スワイプ削除（繰り返しタスク）
             val itemTouchHelperRepeat = ItemTouchHelper(object :
                 ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
                 override fun onMove(
@@ -172,10 +183,18 @@ class MainActivity : AppCompatActivity() {
 
             dialog.show()
         }
+
+        // 🔹追加：日付チェックをスタート
+        dateCheckHandler.post(dateCheckRunnable)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // 🔹追加：Handlerを止める
+        dateCheckHandler.removeCallbacks(dateCheckRunnable)
     }
 
     // 🔹 単発タスク保存
-    // 🔹 タスク保存（Pair<String,String> 用）
     private fun saveTasks() {
         val prefs = getSharedPreferences("TaskPrefs", MODE_PRIVATE)
         val arr = JSONArray()
@@ -188,7 +207,7 @@ class MainActivity : AppCompatActivity() {
         prefs.edit().putString("tasks", arr.toString()).apply()
     }
 
-    // 🔹 タスク読み込み（Pair<String,String> 用）
+    // 🔹 タスク読み込み
     private fun loadTasks(): MutableList<Pair<String, String>> {
         val prefs = getSharedPreferences("TaskPrefs", MODE_PRIVATE)
         val json = prefs.getString("tasks", null) ?: return mutableListOf()
@@ -200,7 +219,6 @@ class MainActivity : AppCompatActivity() {
         }
         return list
     }
-
 
     // 🔹 繰り返しタスク保存
     private fun saveRepeatTasks() {
@@ -232,16 +250,15 @@ class MainActivity : AppCompatActivity() {
     private fun addTodayRepeatTasks() {
         val sharedPreferences = getSharedPreferences("TaskPrefs", MODE_PRIVATE)
         val lastAddedDay = sharedPreferences.getInt("lastAddedDay", -1)
-
         val calendar = Calendar.getInstance()
-        val today = calendar.get(Calendar.DAY_OF_WEEK) // 1=日曜, 2=月曜...7=土曜
+        val today = calendar.get(Calendar.DAY_OF_WEEK)
 
-        if (lastAddedDay == today) return // すでに追加済みなら何もしない
+        if (lastAddedDay == today) return
 
         val newTasks = repeatTaskList.filter { task ->
             val repeatDays = task.second.split(",").mapNotNull { it.toIntOrNull() }
             repeatDays.contains(0) || repeatDays.contains(today)
-        }.map { it.first to it.second } // ← ★繰り返し情報を保持
+        }.map { it.first to it.second }
 
         if (newTasks.isNotEmpty()) {
             taskList.addAll(newTasks)
@@ -251,21 +268,16 @@ class MainActivity : AppCompatActivity() {
         sharedPreferences.edit().putInt("lastAddedDay", today).apply()
     }
 
-
     // 🔹 数字の繰り返し情報を日本語に変換
     private fun formatRepeatInfo(repeatInfo: String): String {
         if (repeatInfo.isEmpty()) return ""
         if (repeatInfo == "0") return "毎日"
 
         val dayMap = mapOf(
-            1 to "日",
-            2 to "月",
-            3 to "火",
-            4 to "水",
-            5 to "木",
-            6 to "金",
-            7 to "土"
+            1 to "日", 2 to "月", 3 to "火", 4 to "水",
+            5 to "木", 6 to "金", 7 to "土"
         )
+
         return repeatInfo.split(",").mapNotNull { num ->
             num.toIntOrNull()?.let { dayMap[it] }
         }.joinToString("・")
